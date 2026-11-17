@@ -82,8 +82,8 @@ def rows_from_payload(payload, ts):
     api_updated = payload.get("lastUpdated")
     for pid, prod in payload.get("products", {}).items():
         qs = prod.get("quick_status", {})
-        ask_prices, ask_coins = levels(prod.get("sell_summary"))
-        bid_prices, bid_coins = levels(prod.get("buy_summary"))
+        ask_prices, ask_coins = levels(prod.get("buy_summary"))
+        bid_prices, bid_coins = levels(prod.get("sell_summary"))
         rows.append((
             ts, pid, api_updated,
             qs.get("buyPrice"), qs.get("sellPrice"),

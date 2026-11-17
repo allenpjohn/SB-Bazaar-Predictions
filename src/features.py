@@ -1,5 +1,6 @@
 import json
 import sqlite3
+import os
 
 import numpy as np
 import pandas as pd
@@ -9,10 +10,14 @@ TIMEZONE = "America/Chicago"
 
 FIRST_TERM_START = "2026-11-15 17:15"
 
-MIN_TURNOVER_PER_HR = 100_000_000
-OUTLIER_RATIO = 3
-SNAPS_PER_HOUR = 4
-HOURS_PER_WEEK = 168
+ITEM_CATEGORIES_CSV = "reference/item_categories.csv"
+EVENTS_CSV = "reference/events.csv"
+PERKS_CSV = "reference/perks.csv"
+
+ORDER_SIZE_COINS = 10_000_000
+MAX_FILL_HOURS = 0.5
+FILL_WEIGHT_CAP = 5
+
 MIN_TURNOVER_PER_HR = 100_000_000
 OUTLIER_RATIO = 3
 SNAPS_PER_HOUR = 4
@@ -90,6 +95,10 @@ def add_market_features(df):
     df["sell_per_hr"] = df["sell_moving_week"] / HOURS_PER_WEEK
     df["buy_per_hr"] = df["buy_moving_week"] / HOURS_PER_WEEK
     df["turnover_per_hr"] = df["instasell_price"] * df["sell_per_hr"]
+    df["buy_turnover_per_hr"] = df["instabuy_price"] * df["buy_per_hr"]
+    df["two_sided_turnover"] = np.minimum(df["turnover_per_hr"], df["buy_turnover_per_hr"])
+    df["est_fill_hours"] = ORDER_SIZE_COINS / df["two_sided_turnover"].replace(0, np.nan)
+    df["fill_weight"] = (df["two_sided_turnover"] / MIN_TURNOVER_PER_HR).clip(0, FILL_WEIGHT_CAP)
 
     total_volume = (df["buy_volume"] + df["sell_volume"]).replace(0, np.nan)
     df["book_imbalance"] = (df["buy_volume"] - df["sell_volume"]) / total_volume
@@ -122,6 +131,7 @@ def add_market_features(df):
         & ~df["outlier"]
         & (df["turnover_per_hr"] >= MIN_TURNOVER_PER_HR)
     )
+    df["fillable"] = df["tradable"] & (df["est_fill_hours"] <= MAX_FILL_HOURS)
     return df.drop(columns=["r1"])
 
 
